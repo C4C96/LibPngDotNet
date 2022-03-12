@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 
 namespace LibPngDotNet.Tests
@@ -59,22 +60,74 @@ namespace LibPngDotNet.Tests
 			}
 		}
 
-		[TestCaseSource(nameof(GetPngCases))]
-		public void GetBitDepthTest(PngCase png)
+		[TestCase("rgb-16", ExpectedResult = 16)]
+		[TestCase("rgb-8", ExpectedResult = 8)]
+		[TestCase("gray-4", ExpectedResult = 4)]
+		[TestCase("gray-2", ExpectedResult = 2)]
+		[TestCase("gray-1", ExpectedResult = 1)]
+		public byte GetBitDepthTest(string pngName)
 		{
-			var path = GetPngPath(png.Name);
-			using var decoder = PngDecoder.Open(path);
-			Assert.False(_hasWarning);
-			Assert.AreEqual(png.BitDepth, decoder.BitDepth);
+			return GetDecoderProperty(pngName, d => d.BitDepth);
 		}
 
-		[TestCaseSource(nameof(GetPngCases))]
-		public void GetColorTypeTest(PngCase png)
+		[TestCase("rgb-16", ExpectedResult = ColorType.Color)]
+		[TestCase("rgb-alpha-16", ExpectedResult = ColorType.Rgba)]
+		[TestCase("gray-16", ExpectedResult = ColorType.Gray)]
+		[TestCase("gray-alpha-16", ExpectedResult = ColorType.GrayAlpha)]
+		[TestCase("palette-8", ExpectedResult = ColorType.Palette | ColorType.Color)]
+		public ColorType GetColorTypeTest(string pngName)
 		{
-			var path = GetPngPath(png.Name);
-			using var decoder = PngDecoder.Open(path);
-			Assert.False(_hasWarning);
-			Assert.AreEqual(png.ColorType, decoder.ColorType);
+			return GetDecoderProperty(pngName, d => d.ColorType);
+		}
+
+		[TestCase("rgb-16", ExpectedResult = CompressionType.Default)]
+		public CompressionType GetCompressionTypeTest(string pngName)
+		{
+			return GetDecoderProperty(pngName, d => d.Compression);
+		}
+
+		[TestCase("rgb-16", ExpectedResult = FilterType.Default)]
+		public FilterType GetFilterTypeTest(string pngName)
+		{
+			return GetDecoderProperty(pngName, d => d.FilterType);
+		}
+
+		[TestCase("rgb-16", ExpectedResult = InterlaceType.None)]
+		public InterlaceType GetInterlaceTypeTest(string pngName)
+		{
+			return GetDecoderProperty(pngName, d => d.InterlaceType);
+		}
+
+		[TestCase("rgb-16")]
+		public void InvertYTest(string pngName)
+		{
+			Rgb[] pixels, invertedPixels;
+			int width, height;
+
+			var path = GetPngPath(pngName);
+			using (var decoder = PngDecoder.Open(path))
+			{
+				width = decoder.Width;
+				height = decoder.Height;
+				pixels = decoder.ReadPixels<Rgb>();
+			}
+
+			using (var decoder = PngDecoder.Open(path))
+			{
+				decoder.Settings.InvertY = true;
+				invertedPixels = decoder.ReadPixels<Rgb>();
+			}
+
+			Assert.AreEqual(width * height, pixels.Length);
+			Assert.AreEqual(width * height, invertedPixels.Length);
+			
+			for (var y = 0; y < height; y++)
+			for (var x = 0; x < width; x++)
+			{
+				var index = x + y * width;
+				var invertedIndex = x + (height - 1 - y) * width;
+				Assert.AreEqual(pixels[index], invertedPixels[invertedIndex]);
+			}
 		}
 
 		[TestCaseSource(nameof(GetReadPixelsTestCases))]
@@ -132,6 +185,14 @@ namespace LibPngDotNet.Tests
 			}
 		}
 
+		private T GetDecoderProperty<T>(string pngName, Func<PngDecoder, T> getProperty)
+		{
+			var path = GetPngPath(pngName);
+			using var decoder = PngDecoder.Open(path);
+			Assert.False(_hasWarning);
+			return getProperty(decoder);
+		}
+
 		private static string GetPngPath(string fileName)
 		{
 			return Path.Combine(TestPngFolder, fileName + ".png");
@@ -145,36 +206,6 @@ namespace LibPngDotNet.Tests
 		private static IEnumerable<string> GetPngPaths()
 		{
 			return Directory.GetFiles(TestPngFolder, "*.png");
-		}
-
-		private static IEnumerable<PngCase> GetPngCases()
-		{
-			foreach (var path in GetPngPaths())
-			{
-				var fileName = Path.GetFileNameWithoutExtension(path);
-				var namePatterns = fileName.Split('-');
-
-				var index = 0;
-
-				var colorTypeText = namePatterns[index++];
-				var colorType = colorTypeText switch
-				{
-					"gray" => ColorType.Gray,
-					"palette" => ColorType.Palette | ColorType.Color,
-					"rgb" => ColorType.Color,
-					_ => throw new FormatException(colorTypeText),
-				};
-
-				if (namePatterns[index] == "alpha")
-				{
-					colorType |= ColorType.Alpha;
-					index++;
-				}
-
-				var bitDepth = int.Parse(namePatterns[index]);
-
-				yield return new PngCase(fileName, colorType, bitDepth);
-			}
 		}
 
 		private static IEnumerable<object[]> GetCrasherCases()
@@ -204,28 +235,14 @@ namespace LibPngDotNet.Tests
 
 		private static IEnumerable<PixelLayout> GetPixelLayouts()
 		{
-			yield return PixelLayout.Gray;
-			yield return PixelLayout.GrayAlpha;
-			yield return PixelLayout.AlphaGray;
-			yield return PixelLayout.Rgb;
-			yield return PixelLayout.Bgr;
-			yield return PixelLayout.Rgba;
-			yield return PixelLayout.Argb;
-			yield return PixelLayout.Gbra;
-			yield return PixelLayout.Agbr;
+			var properties = typeof(PixelLayout).GetProperties(BindingFlags.Public | BindingFlags.Static);
 
-			yield return PixelLayout.Gray16;
-			yield return PixelLayout.GrayAlpha16;
-			yield return PixelLayout.AlphaGray16;
-			yield return PixelLayout.Rgb16;
-			yield return PixelLayout.Bgr16;
-			yield return PixelLayout.Rgba16;
-			yield return PixelLayout.Argb16;
-			yield return PixelLayout.Gbra16;
-			yield return PixelLayout.Agbr16;
+			foreach (var property in properties)
+			{
+				if (property.PropertyType == typeof(PixelLayout))
+					yield return (PixelLayout) property.GetValue(null);
+			}
 		}
-
-		public record PngCase(string Name, ColorType ColorType, int BitDepth);
 
 		public struct Channel3Bits8
 		{

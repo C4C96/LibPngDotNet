@@ -28,6 +28,19 @@ namespace LibPngDotNet
 
 		internal bool HasAlpha => (Channels & 0x1) == 0;
 
+		internal ColorType PngColorType
+		{
+			get
+			{
+				var type = default(ColorType);
+				if (!IsGrayScale)
+					type |= ColorType.Color;
+				if (HasAlpha)
+					type |= ColorType.Alpha;
+				return type;
+			}
+		}
+
 		public PixelLayout(byte channels, byte bitDepth, PixelLayoutFlags flags = PixelLayoutFlags.Default)
 		{
 			Channels = channels;
@@ -102,14 +115,9 @@ namespace LibPngDotNet
 
 		internal static PixelLayout GetLayout(string layoutName)
 		{
-			var properties = typeof(PixelLayout).GetProperties(BindingFlags.Public | BindingFlags.Static);
-			foreach (var property in properties)
-			{
-				if (property.PropertyType != typeof(PixelLayout))
-					continue;
-				if (property.Name == layoutName)
-					return (PixelLayout) property.GetValue(null);
-			}
+			var property = typeof(PixelLayout).GetProperty(layoutName, BindingFlags.Public | BindingFlags.Static);
+			if (property != null && property.PropertyType == typeof(PixelLayout))
+				return (PixelLayout)property.GetValue(null);
 
 			throw new InvalidOperationException($"Unknown layout name: {layoutName}");
 		}

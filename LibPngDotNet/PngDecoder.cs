@@ -1,11 +1,10 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
-using System.Runtime.InteropServices;
 
 namespace LibPngDotNet
 {
 	using static Native;
+	using static PngUtils;
 
 	/// <summary>
 	/// Decode png image.
@@ -18,10 +17,12 @@ namespace LibPngDotNet
 		// hold the delegate instances to prevent GC
 		private readonly png_error _errorCallback;
 		private readonly png_error _warningCallback;
-		private readonly png_rw_ptr _readCallback;
+		private readonly png_rw _readCallback;
 
 		private IntPtr _pngPtr;
 		private IntPtr _infoPtr;
+
+		private DecoderSettings _settings;
 
 		// It's dangerous between Constructor and Initialize
 		// (e.g. access Width property)
@@ -34,17 +35,17 @@ namespace LibPngDotNet
 		/// <returns><see cref="PngDecoder"/> instance to decode png file.</returns>
 		public static PngDecoder Open(string filePath)
 		{
-			var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+			var stream = File.OpenRead(filePath);
 			var decoder = new PngDecoder(stream, true);
 			decoder.Initialize();
 			return decoder;
 		}
 
 		/// <summary>
-		/// Open a stream to decode png image.
+		/// Use a stream to decode png image.
 		/// </summary>
 		/// <param name="stream">A stream contains png content.</param>
-		/// <returns><see cref="PngDecoder"/> instance to decode <paramref name="stream"/></returns>
+		/// <returns><see cref="PngDecoder"/> instance for decoding from <paramref name="stream"/></returns>
 		public static PngDecoder Open(Stream stream)
 		{
 			var decoder = new PngDecoder(stream, false);
@@ -70,15 +71,11 @@ namespace LibPngDotNet
 				_pngPtr = png_create_read_struct(version, IntPtr.Zero, _errorCallback, _warningCallback);
 
 				if (_pngPtr == IntPtr.Zero)
-				{
 					throw new LibPngException("Fail to create read_struct");
-				}
 
 				_infoPtr = png_create_info_struct(_pngPtr);
 				if (_infoPtr == IntPtr.Zero)
-				{
 					throw new LibPngException("Fail to create info_struct");
-				}
 
 				png_set_read_fn(_pngPtr, IntPtr.Zero, _readCallback);
 				png_read_info(_pngPtr, _infoPtr);
@@ -107,9 +104,14 @@ namespace LibPngDotNet
 		public Stream Stream => _stream;
 
 		/// <summary>
-		/// Decode settings.
+		/// Decoder settings.
 		/// </summary>
-		public PngSettings Settings { get; } = new PngSettings();
+		/// <seealso cref="DecoderSettings"/>
+		public DecoderSettings Settings
+		{
+			get => _settings ?? (_settings = new DecoderSettings());
+			set => _settings = value ?? throw new ArgumentNullException(nameof(value));
+		}
 
 		/// <summary>
 		/// Image width in pixels.
@@ -137,7 +139,22 @@ namespace LibPngDotNet
 		public ColorType ColorType => png_get_color_type(_pngPtr, _infoPtr);
 
 		/// <summary>
-		/// Number of bytes needed to hold a transformed row.
+		/// Image <see cref="FilterType"/>
+		/// </summary>
+		public FilterType FilterType => png_get_filter_type(_pngPtr, _infoPtr);
+
+		/// <summary>
+		/// Image <see cref="InterlaceType"/>.
+		/// </summary>
+		public InterlaceType InterlaceType => png_get_interlace_type(_pngPtr, _infoPtr);
+
+		/// <summary>
+		/// Image <see cref="CompressionType"/>.
+		/// </summary>
+		public CompressionType Compression => png_get_compression_type(_pngPtr, _infoPtr);
+
+		/// <summary>
+		/// Number of bytes needed to hold a row.
 		/// </summary>
 		public int RowBytes => png_get_rowbytes(_pngPtr, _infoPtr);
 
@@ -146,132 +163,51 @@ namespace LibPngDotNet
 		/// </summary>
 		public byte Channels => png_get_channels(_pngPtr, _infoPtr);
 
-		/// <inheritdoc cref="ReadPixels{TPixel}(PixelLayout, TPixel[], int)"/>
-		public TPixel[] ReadPixels<TPixel>() where TPixel : unmanaged
+		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
+		public T[] ReadPixels<T>() where T : unmanaged
 		{
-			TPixel[] result = null;
-			ReadPixels(ref result);
+			var result = new T[PixelCount];
+			ReadPixels((Span<T>)result);
 			return result;
 		}
 
-		/// <inheritdoc cref="ReadPixels{TPixel}(PixelLayout, TPixel[], int)"/>
-		public TPixel[] ReadPixels<TPixel>(PixelLayout layout) where TPixel : unmanaged
+		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
+		public T[] ReadPixels<T>(PixelLayout layout) where T : unmanaged
 		{
-			TPixel[] result = null;
-			ReadPixels(layout, ref result);
+			var result = new T[PixelCount];
+			ReadPixels(layout, (Span<T>)result);
 			return result;
 		}
 
-		/// <inheritdoc cref="ReadPixels{TPixel}(PixelLayout, TPixel[], int)"/>
-		public int ReadPixels<TPixel>(ref TPixel[] buffer) where TPixel : unmanaged
+		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
+		public int ReadPixels<T>(Span<T> buffer) where T : unmanaged
 		{
-			var layout = GetPixelLayoutByAttribute(typeof(TPixel));
-			return ReadPixels(layout, ref buffer);
-		}
-
-		/// <inheritdoc cref="ReadPixels{TPixel}(PixelLayout, TPixel[], int)"/>
-		public int ReadPixels<TPixel>(PixelLayout layout, ref TPixel[] buffer) where TPixel : unmanaged
-		{
-			var pixelCount = Width * Height;
-			if (buffer == null || buffer.Length < pixelCount)
-				buffer = new TPixel[pixelCount];
+			var layout = GetPixelLayoutByAttribute(typeof(T));
 			return ReadPixels(layout, buffer);
-		}
-
-		/// <inheritdoc cref="ReadPixels{TPixel}(PixelLayout, TPixel[], int)"/>
-		public int ReadPixels<TPixel>(TPixel[] buffer, int offset = 0) where TPixel : unmanaged
-		{
-			var layout = GetPixelLayoutByAttribute(typeof(TPixel));
-			return ReadPixels(layout, buffer, offset);
 		}
 
 		/// <summary>
 		/// Read image pixels.
 		/// </summary>
 		/// <typeparam name="T">Unmanaged struct to hold the result. If no <see cref="PixelLayout"/> argument passed, this type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
-		/// <param name="layout">Describe the layout of pixel.</param>
-		/// <param name="buffer">Buffer to hold the result. If passed by <c>ref</c> keyword, it wii be created or resized if necessary. Otherwise, it should not be <c>null</c> and size from <paramref name="offset"/> to end should at least <see cref="PixelCount"/></param>
-		/// <param name="offset">The index in <paramref name="buffer"/> to start the pixel data.</param>
+		/// <param name="layout">Describe the layout of pixel in <paramref name="buffer"/>.</param>
+		/// <param name="buffer">Buffer to hold the result. Its length should at least <see cref="PixelCount"/></param>
 		/// <returns>If pass a buffer, the return value is the number of pixels read, which should be <see cref="PixelCount"/>. Otherwise, the return value is pixels read.</returns>
-		public int ReadPixels<T>(PixelLayout layout, T[] buffer, int offset = 0) where T : unmanaged
+		public int ReadPixels<T>(PixelLayout layout, Span<T> buffer) where T : unmanaged
 		{
-			AssertValidPixelLayout(layout, sizeof(T));
-			if (buffer == null) throw new ArgumentNullException(nameof(buffer));
-
-			var height = Height;
-			var pixelCount = PixelCount;
-
-			if (buffer.Length < offset + pixelCount)
-				throw new ArgumentException($"The buffer (offset: {offset}, length: {buffer.Length}) is too small for {pixelCount} pixels.");
+			AssertValidInput(layout, (ReadOnlySpan<T>) buffer, PixelCount);
 
 			TransformForRead(layout);
 
-			var rowBytes = RowBytes;
-			var rowPtrArray = (byte**) Marshal.AllocHGlobal(sizeof(byte*) * height);
-			if (rowPtrArray == null)
-				throw new OutOfMemoryException("Fail to allocate unmanaged memory.");
-
-			try
+			var rowBytes = layout.PixelBits * Width / 8;
+			using var rowPointers = new RowPointerArray(rowBytes, Height);
+			fixed (T* bufferPtr = buffer)
 			{
-				fixed (T* bufferPtr = buffer)
-				{
-					var basePtr = (byte*)(bufferPtr + offset);
-
-					if (Settings.RevertImageY)
-					{
-						for (var row = height - 1; row >= 0; row--)
-							rowPtrArray[height - 1 - row] = basePtr + rowBytes * row;
-					}
-					else
-					{
-						for (var row = 0; row < height; row++)
-							rowPtrArray[row] = basePtr + rowBytes * row;
-					}
-
-					png_read_image(_pngPtr, rowPtrArray);
-				}
-			}
-			finally
-			{
-				Marshal.FreeHGlobal((IntPtr)rowPtrArray);
+				rowPointers.SetRowPointers(bufferPtr, Settings.InvertY);
+				png_read_image(_pngPtr, rowPointers.Pointer);
 			}
 
-			return pixelCount;
-		}
-
-		private static PixelLayout GetPixelLayoutByAttribute(Type type)
-		{
-			var attribute = type.GetCustomAttribute<PngPixelAttribute>();
-			if (attribute == null)
-			{
-				throw new InvalidOperationException(
-					$"Cannot find {nameof(PngPixelAttribute)} on {type}. " +
-					$"Add {nameof(PngPixelAttribute)} on {type} or pass a {nameof(PixelLayout)} struct.");
-			}
-
-			return attribute.PixelLayout;
-		}
-
-		private static void AssertValidPixelLayout(PixelLayout layout, int structSize)
-		{
-			if (layout.Channels <= 0 || layout.Channels > 4)
-			{
-				throw new NotSupportedException($"Not support for color struct with {layout.Channels} channels.");
-			}
-
-			if (layout.BitDepth != 8 && layout.BitDepth != 16)
-			{
-				// TODO: Support 1, 2, 4 bits gray scale
-				throw new NotSupportedException($"Not support for color struct with {layout.BitDepth} bit depth.");
-			}
-
-			// TODO: Support using multiple structs to represent single pixel
-			// e.g. fill byte[] with rgb format
-			var pixelSize = layout.PixelBits / 8;
-			if (pixelSize != structSize)
-			{
-				throw new ArgumentException($"Size of pixel struct({structSize}) does not match width {nameof(PixelLayout)}({pixelSize})");
-			}
+			return PixelCount;
 		}
 
 		private void TransformForRead(PixelLayout layout)
@@ -319,7 +255,8 @@ namespace LibPngDotNet
 				png_set_swap_alpha(_pngPtr);
 			}
 
-			png_read_update_info(_pngPtr, _infoPtr);
+			// call this will affect properties, like ColorType.
+			// png_read_update_info(_pngPtr, _infoPtr);
 		}
 
 		/// <summary>
@@ -354,24 +291,6 @@ namespace LibPngDotNet
 			var readLength = _stream.Read(span);
 			if (readLength != length)
 				throw new LibPngException($"Attempted to read {length} bytes from stream but only read {readLength} bytes.");
-		}
-
-		public class PngSettings
-		{
-			/// <summary>
-			/// Only used when convert a colorful image to gray.
-			/// </summary>
-			public RgbToGrayConfidence RgbToGrayConfidence = RgbToGrayConfidence.Default;
-
-			/// <summary>
-			/// If <c>true</c>, the origin of the image is at bottom-left.
-			/// Otherwise, the original is at to-left by default.
-			/// </summary>
-			public bool RevertImageY;
-
-			internal PngSettings()
-			{
-			}
 		}
 	}
 }
