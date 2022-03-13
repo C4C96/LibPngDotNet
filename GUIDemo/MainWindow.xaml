@@ -1,0 +1,26 @@
+﻿<Window x:Class="LibPngDotNet.GUIDemo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:LibPngDotNet.GUIDemo"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <StackPanel Orientation="Vertical" Margin="10, 6">
+        <DockPanel Margin="0,5">
+            <Button DockPanel.Dock="Left" Content="Decode" Margin="5,0" Padding="5,0" Click="DecodeButton_OnClick"/>
+            <Label DockPanel.Dock="Right" Content="Format" Margin="5,0"/>
+            <ComboBox DockPanel.Dock="Right" SelectedValue="{Binding PixelLayout}" ItemsSource="{Binding PixelLayouts}" Width="80"/>
+            <Label DockPanel.Dock="Right" Content="As"/>
+            <Button DockPanel.Dock="Right" Content="..." Width="25" Click="OpenDecodeFileButton_OnClick"/>
+            <TextBox Text="{Binding DecodeFilePath}" />
+        </DockPanel>
+        <DockPanel Margin="0,5">
+            <Button DockPanel.Dock="Left" Content="Encode" Margin="5,0" Padding="5,0" Click="EncodeButton_OnClick"/>
+            <Label DockPanel.Dock="Left" Content="To"/>
+            <Button DockPanel.Dock="Right" Content="..." Width="25" Click="OpenEncodeFileButton_OnClick"/>
+            <TextBox Text="{Binding EncodeFilePath}" />
+        </DockPanel>
+        <Image Name="Image"/>
+    </StackPanel>
+</Window>

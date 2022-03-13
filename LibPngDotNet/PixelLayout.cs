@@ -22,11 +22,20 @@ namespace LibPngDotNet
 
 		public readonly PixelLayoutFlags Flags;
 
-		internal int PixelBits => BitDepth * Channels;
+		/// <summary>
+		/// Bits per pixel.
+		/// </summary>
+		public int PixelBits => BitDepth * Channels;
 
-		internal bool IsGrayScale => Channels <= 2;
+		/// <summary>
+		/// Is gray scale, otherwise, is colorful.
+		/// </summary>
+		public bool IsGrayScale => Channels <= 2;
 
-		internal bool HasAlpha => (Channels & 0x1) == 0;
+		/// <summary>
+		/// Has alpha channel or not.
+		/// </summary>
+		public bool HasAlpha => (Channels & 0x1) == 0;
 
 		internal ColorType PngColorType
 		{
@@ -91,6 +100,11 @@ namespace LibPngDotNet
 			}
 
 			return name + suffix;
+		}
+
+		public override int GetHashCode()
+		{
+			return Channels << 24 | BitDepth << 16 | (int) Flags;
 		}
 
 		public static PixelLayout Gray => new PixelLayout(1, 8);

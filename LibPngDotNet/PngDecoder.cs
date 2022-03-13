@@ -166,16 +166,18 @@ namespace LibPngDotNet
 		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
 		public T[] ReadPixels<T>() where T : unmanaged
 		{
-			var result = new T[PixelCount];
-			ReadPixels((Span<T>)result);
-			return result;
+			var layout = GetPixelLayoutByAttribute(typeof(T));
+			return ReadPixels<T>(layout);
 		}
 
 		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
 		public T[] ReadPixels<T>(PixelLayout layout) where T : unmanaged
 		{
-			var result = new T[PixelCount];
-			ReadPixels(layout, (Span<T>)result);
+			// TODO: check input before allocate array
+			var bufferSize = (layout.PixelBits * PixelCount + 7) / 8;
+			var arraySize = (bufferSize + sizeof(T) - 1) / sizeof(T);
+			var result = new T[arraySize];
+			ReadPixels(layout, result.AsSpan());
 			return result;
 		}
 

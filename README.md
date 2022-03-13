@@ -1,6 +1,6 @@
 # LibPngDotNet
 
-`LibPngDotNet` is a .net png library based on libpng. It can encode and decode images in png format.
+`LibPngDotNet` is a .net png library based on [libpng](https://github.com/glennrp/libpng) libpng. It can encode and decode images in png format.
 
 ## Features
 
@@ -9,7 +9,7 @@
 * Encode custom pixel struct into the corresponding png bit depth (8, 16) and color types  (gray scale, gray scale with alpha, rgb, rgba).
 * Custom pixel struct supports these layout with 8 or 16 bits per channel:
     * Gray Scale
-    * Gray Scale With Alpha
+    * GA, AG (gray scale with alpha)
     * RGB, BGR
     * RGBA, ARGB, BGRA, ABGR
 
