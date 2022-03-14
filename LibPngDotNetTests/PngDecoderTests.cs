@@ -143,9 +143,6 @@ namespace LibPngDotNet.Tests
 
 		private static IEnumerable<object[]> GetReadPixelsTestCases()
 		{
-			//var fileName = @"rgb-alpha-16";
-			//var layout = PixelLayout.Gray;
-
 			foreach (var fileName in GetPngNames())
 			foreach (var layout in GetPixelLayouts())
 			{
@@ -240,7 +237,7 @@ namespace LibPngDotNet.Tests
 			foreach (var property in properties)
 			{
 				if (property.PropertyType == typeof(PixelLayout))
-					yield return (PixelLayout) property.GetValue(null);
+					yield return (PixelLayout) (property.GetValue(null) ?? throw new Exception());
 			}
 		}
 

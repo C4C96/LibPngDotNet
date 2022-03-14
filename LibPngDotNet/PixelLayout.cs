@@ -86,14 +86,24 @@ namespace LibPngDotNet
 					name = (Flags & PixelLayoutFlags.ReverseRgbOrder) != 0 ? "Bgr" : "Rgb";
 					break;
 				case 4:
-					name = Flags switch
+					switch (Flags)
 					{
-						PixelLayoutFlags.Default => "Rgba",
-						PixelLayoutFlags.ReverseRgbOrder => "Bgra",
-						PixelLayoutFlags.AlphaAtHead => "Argb",
-						PixelLayoutFlags.Agbr => "Abgr",
-						_ => throw new NotSupportedException(),
-					};
+						case PixelLayoutFlags.Default:
+							name = "Rgba";
+							break;
+						case PixelLayoutFlags.ReverseRgbOrder:
+							name = "Bgra";
+							break;
+						case PixelLayoutFlags.AlphaAtHead:
+							name = "Argb";
+							break;
+						case PixelLayoutFlags.Agbr:
+							name = "Abgr";
+							break;
+						default:
+							throw new NotSupportedException();
+					}
+
 					break;
 				default:
 					return null;

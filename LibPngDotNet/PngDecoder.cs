@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace LibPngDotNet
 {
@@ -18,6 +19,10 @@ namespace LibPngDotNet
 		private readonly png_error _errorCallback;
 		private readonly png_error _warningCallback;
 		private readonly png_rw _readCallback;
+
+#if !NET
+		private byte[] _buffer;
+#endif
 
 		private IntPtr _pngPtr;
 		private IntPtr _infoPtr;
@@ -163,25 +168,34 @@ namespace LibPngDotNet
 		/// </summary>
 		public byte Channels => png_get_channels(_pngPtr, _infoPtr);
 
-		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
 		public T[] ReadPixels<T>() where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
 			return ReadPixels<T>(layout);
 		}
 
-		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
 		public T[] ReadPixels<T>(PixelLayout layout) where T : unmanaged
 		{
 			// TODO: check input before allocate array
 			var bufferSize = (layout.PixelBits * PixelCount + 7) / 8;
 			var arraySize = (bufferSize + sizeof(T) - 1) / sizeof(T);
 			var result = new T[arraySize];
-			ReadPixels(layout, result.AsSpan());
+			ReadPixels(layout, result, 0);
 			return result;
 		}
 
-		/// <inheritdoc cref="ReadPixels{T}(PixelLayout, Span{T})"/>
+		public int ReadPixels<T>(T[] buffer, int offset) where T : unmanaged
+		{
+			var layout = GetPixelLayoutByAttribute(typeof(T));
+			return ReadPixels(layout, buffer, offset);
+		}
+
+		public int ReadPixels<T>(PixelLayout layout, T[] buffer, int offset) where T : unmanaged
+#if NET
+		{
+			return ReadPixels(layout, buffer.AsSpan(offset));
+		}
+
 		public int ReadPixels<T>(Span<T> buffer) where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
@@ -196,17 +210,26 @@ namespace LibPngDotNet
 		/// <param name="buffer">Buffer to hold the result. Its length should at least <see cref="PixelCount"/></param>
 		/// <returns>If pass a buffer, the return value is the number of pixels read, which should be <see cref="PixelCount"/>. Otherwise, the return value is pixels read.</returns>
 		public int ReadPixels<T>(PixelLayout layout, Span<T> buffer) where T : unmanaged
+#endif
 		{
-			AssertValidInput(layout, (ReadOnlySpan<T>) buffer, PixelCount);
+			AssertValidInput(layout,
+#if NET
+				(ReadOnlySpan<T>) buffer,
+#else
+				buffer, offset,
+#endif
+				PixelCount);
 
 			TransformForRead(layout);
 
 			var rowBytes = layout.PixelBits * Width / 8;
-			using var rowPointers = new RowPointerArray(rowBytes, Height);
-			fixed (T* bufferPtr = buffer)
+			using (var rowPointers = new RowPointerArray(rowBytes, Height))
 			{
-				rowPointers.SetRowPointers(bufferPtr, Settings.InvertY);
-				png_read_image(_pngPtr, rowPointers.Pointer);
+				fixed (T* bufferPtr = buffer)
+				{
+					rowPointers.SetRowPointers(bufferPtr, Settings.InvertY);
+					png_read_image(_pngPtr, rowPointers.Pointer);
+				}
 			}
 
 			return PixelCount;
@@ -289,10 +312,19 @@ namespace LibPngDotNet
 
 		private void ReadFromStream(IntPtr pngPtr, byte* ptr, int length)
 		{
+#if NET
 			var span = new Span<byte>(ptr, length);
 			var readLength = _stream.Read(span);
+#else
+			ResizeBuffer(ref _buffer, length);
+			var readLength = _stream.Read(_buffer, 0, length);
+#endif
 			if (readLength != length)
 				throw new LibPngException($"Attempted to read {length} bytes from stream but only read {readLength} bytes.");
+
+#if !NET
+			Marshal.Copy(_buffer, 0, (IntPtr) ptr, length);
+#endif
 		}
 	}
 }

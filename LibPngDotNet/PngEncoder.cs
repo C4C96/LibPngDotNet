@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace LibPngDotNet
 {
@@ -16,6 +17,10 @@ namespace LibPngDotNet
 		private readonly png_error _warningCallback;
 		private readonly png_rw _writeCallback;
 		private readonly png_flush _flushCallback;
+
+#if !NET
+		private byte[] _buffer;
+#endif
 
 		private IntPtr _pngPtr;
 		private IntPtr _infoPtr;
@@ -105,6 +110,16 @@ namespace LibPngDotNet
 		}
 
 		/// <summary>
+		/// Image width in pixels.
+		/// </summary>
+		public int Width { get; set; }
+
+		/// <summary>
+		/// Image height in pixels.
+		/// </summary>
+		public int Height { get; set; }
+
+		/// <summary>
 		/// Image <see cref="FilterType"/>.
 		/// </summary>
 		public FilterType FilterMethod { get; set; } = FilterType.Default;
@@ -119,27 +134,43 @@ namespace LibPngDotNet
 		/// </summary>
 		public CompressionType Compression { get; set; } = CompressionType.Default;
 
-		/// <inheritdoc cref="WriteImage{T}(int,int,PixelLayout,ReadOnlySpan{T})"/>
-		public void WriteImage<T>(int width, int height, ReadOnlySpan<T> pixels) where T : unmanaged
+		public void WriteImage<T>(T[] pixels, int offset = 0) where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
-			WriteImage(width, height, layout, pixels);
+			WriteImage(layout, pixels, offset);
+		}
+
+		public void WriteImage<T>(PixelLayout pixelLayout, T[] pixels, int offset = 0) where T : unmanaged
+#if NET
+		{
+
+			WriteImage(pixelLayout, new ReadOnlySpan<T>(pixels, offset, pixels.Length));
+		}
+
+		public void WriteImage<T>(ReadOnlySpan<T> pixels) where T : unmanaged
+		{
+			var layout = GetPixelLayoutByAttribute(typeof(T));
+			WriteImage(layout, pixels);
 		}
 
 		/// <summary>
 		/// Write pixels as Png image.
 		/// </summary>
 		/// <typeparam name="T">Unmanaged struct to describe the pixels data. If no <see cref="PixelLayout"/> argument passed, this type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
-		/// <param name="width">Image width in pixels.</param>
-		/// <param name="height">Image height in pixels.</param>
 		/// <param name="pixelLayout">Describe the layout of pixel in <paramref name="pixels"/>.</param>
 		/// <param name="pixels">Image pixels.</param>
-		public void WriteImage<T>(int width, int height, PixelLayout pixelLayout, ReadOnlySpan<T> pixels) where T : unmanaged
+		public void WriteImage<T>(PixelLayout pixelLayout, ReadOnlySpan<T> pixels) where T : unmanaged
+#endif
 		{
-			AssertValidInput(pixelLayout, pixels, width * height);
+			AssertValidInput(pixelLayout, pixels,
+#if !NET
+				offset,
+#endif
+				Width * Height);
+
 
 			png_set_IHDR(_pngPtr, _infoPtr,
-				width, height, pixelLayout.BitDepth, (int)pixelLayout.PngColorType,
+				Width, Height, pixelLayout.BitDepth, (int)pixelLayout.PngColorType,
 				(int)InterlaceType, (int)Compression, (int)FilterMethod);
 
 			// make png_set_IHDR work
@@ -147,13 +178,15 @@ namespace LibPngDotNet
 
 			TransformForWrite(pixelLayout);
 
-			var rowBytes = pixelLayout.PixelBits * width / 8;
+			var rowBytes = pixelLayout.PixelBits * Width / 8;
 
-			using var rowPointers = new RowPointerArray(rowBytes, height);
-			fixed (T* bufferPtr = pixels)
+			using (var rowPointers = new RowPointerArray(rowBytes, Height))
 			{
-				rowPointers.SetRowPointers(bufferPtr, Settings.InvertY);
-				png_write_image(_pngPtr, rowPointers.Pointer);
+				fixed (T* bufferPtr = pixels)
+				{
+					rowPointers.SetRowPointers(bufferPtr, Settings.InvertY);
+					png_write_image(_pngPtr, rowPointers.Pointer);
+				}
 			}
 
 			png_write_end(_pngPtr, IntPtr.Zero);
@@ -170,6 +203,8 @@ namespace LibPngDotNet
 			{
 				png_set_swap_alpha(_pngPtr);
 			}
+
+			// TODO:IsLittleEndian
 		}
 
 		/// <summary>
@@ -198,8 +233,14 @@ namespace LibPngDotNet
 
 		private void WriteToStream(IntPtr pngPtr, byte* ptr, int length)
 		{
+#if NET
 			var span = new Span<byte>(ptr, length);
 			_stream.Write(span);
+#else
+			ResizeBuffer(ref _buffer, length);
+			Marshal.Copy((IntPtr)ptr, _buffer, 0, length);
+			_stream.Write(_buffer, 0, length);
+#endif
 		}
 
 		private void FlushStream(IntPtr pngPtr)

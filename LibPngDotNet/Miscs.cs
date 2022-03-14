@@ -1,12 +1,23 @@
 ﻿using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
+#if !NET
+using System.Runtime.CompilerServices;
+#endif
 
 namespace LibPngDotNet
 {
 	internal static unsafe class PngUtils
 	{
-		public static void AssertValidInput<T>(PixelLayout layout, ReadOnlySpan<T> buffer, int pixelCount) where T : unmanaged
+		public static void AssertValidInput<T>(
+			PixelLayout layout,
+#if NET
+			ReadOnlySpan<T> buffer,
+#else
+			T[] buffer,
+			int offset,
+#endif
+			int pixelCount) where T : unmanaged
 		{
 			if (layout.Channels <= 0 || layout.Channels > 4)
 			{
@@ -19,9 +30,41 @@ namespace LibPngDotNet
 				throw new NotSupportedException($"Not support for color struct with {layout.BitDepth} bit depth.");
 			}
 
-			if (sizeof(T) * buffer.Length < layout.PixelBits * pixelCount / 8)
-				throw new IndexOutOfRangeException($"The buffer ({sizeof(T)}*{buffer.Length}) is too small for {pixelCount} pixels.");
+			var needBytes = layout.PixelBits * pixelCount / 8;
+#if NET
+			var bufferLength = buffer.Length;
+#else
+			var bufferLength = buffer.Length - offset;
+#endif
+			var bufferBytes = sizeof(T) * bufferLength;
+			if (bufferBytes < needBytes)
+				throw new IndexOutOfRangeException($"The buffer({bufferBytes} bytes) is too small for pixels ({needBytes} bytes).");
 		}
+
+#if !NET
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void ResizeBuffer(ref byte[] buffer, int minSize)
+		{
+			if (buffer != null && buffer.Length >= minSize)
+				return;
+
+			var size = NextPowOf2(minSize);
+			buffer = new byte[size];
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private static int NextPowOf2(int num)
+		{
+			num--;
+			num |= num >> 1;
+			num |= num >> 2;
+			num |= num >> 4;
+			num |= num >> 8;
+			num |= num >> 16;
+			num++;
+			return num;
+		}
+#endif
 
 		public static PixelLayout GetPixelLayoutByAttribute(Type type)
 		{

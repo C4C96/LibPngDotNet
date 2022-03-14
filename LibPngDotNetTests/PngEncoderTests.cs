@@ -98,7 +98,9 @@ namespace LibPngDotNet.Tests
 			using var stream = new MemoryStream();
 			using var encoder = PngEncoder.Open(stream);
 			encoder.Settings.InvertY = invertY;
-			encoder.WriteImage(1, source.Length, (ReadOnlySpan<TEncode>)source);
+			encoder.Width = 1;
+			encoder.Height = source.Length;
+			encoder.WriteImage(source);
 
 			stream.Seek(0, SeekOrigin.Begin);
 			using var decoder = PngDecoder.Open(stream);

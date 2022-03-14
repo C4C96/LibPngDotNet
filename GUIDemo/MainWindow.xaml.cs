@@ -99,8 +99,10 @@ namespace LibPngDotNet.GUIDemo
 				return;
 
 			using var encoder = PngEncoder.Open(EncodeFilePath);
+			encoder.Width = image.PixelWidth;
+			encoder.Height = image.PixelHeight;
 			var pixels = new ReadOnlySpan<byte>((byte*)image.BackBuffer, image.BackBufferStride * image.PixelHeight);
-			encoder.WriteImage(image.PixelWidth, image.PixelHeight, PixelLayout, pixels);
+			encoder.WriteImage(PixelLayout, pixels);
 		}
 
 		private void OpenEncodeFileButton_OnClick(object sender, RoutedEventArgs e)
