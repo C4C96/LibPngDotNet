@@ -68,7 +68,7 @@ namespace LibPngDotNet.GUIDemo
 			{ PixelLayout.Gray, PixelFormats.Gray8 },
 			{ PixelLayout.Rgb, PixelFormats.Rgb24 },
 			{ PixelLayout.Bgr, PixelFormats.Bgr24 },
-			{ PixelLayout.Gbra, PixelFormats.Bgra32 },
+			{ PixelLayout.Bgra, PixelFormats.Bgra32 },
 			{ PixelLayout.Gray16, PixelFormats.Gray16 },
 			{ PixelLayout.Rgb16, PixelFormats.Rgb48 },
 			{ PixelLayout.Rgba16, PixelFormats.Rgba64 },

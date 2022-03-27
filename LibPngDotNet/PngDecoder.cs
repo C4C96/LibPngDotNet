@@ -8,7 +8,7 @@ namespace LibPngDotNet
 	using static PngUtils;
 
 	/// <summary>
-	/// Decode png image.
+	/// Decoder to decode png image.
 	/// </summary>
 	public unsafe class PngDecoder : IDisposable
 	{
@@ -92,6 +92,7 @@ namespace LibPngDotNet
 			}
 		}
 
+		/// <inheritdoc />
 		~PngDecoder()
 		{
 			Dispose();
@@ -168,12 +169,23 @@ namespace LibPngDotNet
 		/// </summary>
 		public byte Channels => png_get_channels(_pngPtr, _infoPtr);
 
+		/// <summary>
+		/// Read image pixels.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to hold the result. It type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <returns>The pixels read.</returns>
 		public T[] ReadPixels<T>() where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
 			return ReadPixels<T>(layout);
 		}
 
+		/// <summary>
+		/// Read image pixels.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to hold the result.</typeparam>
+		/// <param name="layout">Describe the layout of the resulting pixel.</param>
+		/// <returns>The pixels read.</returns>
 		public T[] ReadPixels<T>(PixelLayout layout) where T : unmanaged
 		{
 			// TODO: check input before allocate array
@@ -184,18 +196,39 @@ namespace LibPngDotNet
 			return result;
 		}
 
-		public int ReadPixels<T>(T[] buffer, int offset) where T : unmanaged
+		/// <summary>
+		/// Read image pixels.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to hold the result. It type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <param name="buffer">Buffer to hold the result.</param>
+		/// <param name="offset">Start index in <paramref name="buffer"/>.</param>
+		/// <returns>The number of pixels read, which should be <see cref="PixelCount"/>.</returns>
+		public int ReadPixels<T>(T[] buffer, int offset = 0) where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
 			return ReadPixels(layout, buffer, offset);
 		}
 
-		public int ReadPixels<T>(PixelLayout layout, T[] buffer, int offset) where T : unmanaged
+		/// <summary>
+		/// Read image pixels.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to hold the result.</typeparam>
+		/// <param name="layout">Describe the layout of pixel in <paramref name="buffer"/>.</param>
+		/// <param name="buffer">Buffer to hold the result.</param>
+		/// <param name="offset">Start index in <paramref name="buffer"/>.</param>
+		/// <returns>The number of pixels read, which should be <see cref="PixelCount"/>.</returns>
+		public int ReadPixels<T>(PixelLayout layout, T[] buffer, int offset = 0) where T : unmanaged
 #if NET
 		{
 			return ReadPixels(layout, buffer.AsSpan(offset));
 		}
 
+		/// <summary>
+		/// Read image pixels.
+		/// </summary>
+		/// <param name="buffer">Buffer to hold the result.</param>
+		/// <typeparam name="T">Unmanaged struct to hold the result. It type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <returns>The number of pixels read, which should be <see cref="PixelCount"/>.</returns>
 		public int ReadPixels<T>(Span<T> buffer) where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
@@ -205,10 +238,10 @@ namespace LibPngDotNet
 		/// <summary>
 		/// Read image pixels.
 		/// </summary>
-		/// <typeparam name="T">Unmanaged struct to hold the result. If no <see cref="PixelLayout"/> argument passed, this type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <typeparam name="T">Unmanaged struct to hold the result.</typeparam>
 		/// <param name="layout">Describe the layout of pixel in <paramref name="buffer"/>.</param>
-		/// <param name="buffer">Buffer to hold the result. Its length should at least <see cref="PixelCount"/></param>
-		/// <returns>If pass a buffer, the return value is the number of pixels read, which should be <see cref="PixelCount"/>. Otherwise, the return value is pixels read.</returns>
+		/// <param name="buffer">Buffer to hold the result.</param>
+		/// <returns>The number of pixels read, which should be <see cref="PixelCount"/>.</returns>
 		public int ReadPixels<T>(PixelLayout layout, Span<T> buffer) where T : unmanaged
 #endif
 		{

@@ -4,6 +4,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Configurations>.Net5;.NetFrameWork4.8</Configurations>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>C4C96</Authors>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='.NetFrameWork4.8|AnyCPU'">

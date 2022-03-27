@@ -7,7 +7,7 @@ namespace LibPngDotNet
 	/// </summary>
 	public class LibPngException : Exception
 	{
-		public LibPngException(string message) : base(message)
+		internal LibPngException(string message) : base(message)
 		{
 		}
 	}

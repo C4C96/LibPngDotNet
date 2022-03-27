@@ -1,12 +1,14 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace LibPngDotNet
 {
 	using static Native;
 	using static PngUtils;
 
+	/// <summary>
+	/// Encoder to encode png image.
+	/// </summary>
 	public unsafe class PngEncoder : IDisposable
 	{
 		private readonly Stream _stream;
@@ -86,6 +88,7 @@ namespace LibPngDotNet
 			}
 		}
 
+		/// <inheritdoc />
 		~PngEncoder()
 		{
 			Dispose();
@@ -134,12 +137,25 @@ namespace LibPngDotNet
 		/// </summary>
 		public CompressionType Compression { get; set; } = CompressionType.Default;
 
+		/// <summary>
+		/// Write pixels as Png image.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to describe the pixels data. It should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <param name="pixels">Image pixels.</param>
+		/// <param name="offset">Start index in <paramref name="pixels"/></param>
 		public void WriteImage<T>(T[] pixels, int offset = 0) where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
 			WriteImage(layout, pixels, offset);
 		}
 
+		/// <summary>
+		/// Write pixels as Png image.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to describe the pixels data.</typeparam>
+		/// <param name="pixelLayout">Describe the layout of pixel in <paramref name="pixels"/>.</param>
+		/// <param name="pixels">Image pixels.</param>
+		/// <param name="offset">Start index in <paramref name="pixels"/></param>
 		public void WriteImage<T>(PixelLayout pixelLayout, T[] pixels, int offset = 0) where T : unmanaged
 #if NET
 		{
@@ -147,6 +163,11 @@ namespace LibPngDotNet
 			WriteImage(pixelLayout, new ReadOnlySpan<T>(pixels, offset, pixels.Length));
 		}
 
+		/// <summary>
+		/// Write pixels as Png image.
+		/// </summary>
+		/// <typeparam name="T">Unmanaged struct to describe the pixels data. It should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <param name="pixels">Image pixels.</param>
 		public void WriteImage<T>(ReadOnlySpan<T> pixels) where T : unmanaged
 		{
 			var layout = GetPixelLayoutByAttribute(typeof(T));
@@ -156,7 +177,7 @@ namespace LibPngDotNet
 		/// <summary>
 		/// Write pixels as Png image.
 		/// </summary>
-		/// <typeparam name="T">Unmanaged struct to describe the pixels data. If no <see cref="PixelLayout"/> argument passed, this type should has a <see cref="PngPixelAttribute"/> attribute.</typeparam>
+		/// <typeparam name="T">Unmanaged struct to describe the pixels data.</typeparam>
 		/// <param name="pixelLayout">Describe the layout of pixel in <paramref name="pixels"/>.</param>
 		/// <param name="pixels">Image pixels.</param>
 		public void WriteImage<T>(PixelLayout pixelLayout, ReadOnlySpan<T> pixels) where T : unmanaged
@@ -238,7 +259,7 @@ namespace LibPngDotNet
 			_stream.Write(span);
 #else
 			ResizeBuffer(ref _buffer, length);
-			Marshal.Copy((IntPtr)ptr, _buffer, 0, length);
+			System.Runtime.InteropServices.Marshal.Copy((IntPtr)ptr, _buffer, 0, length);
 			_stream.Write(_buffer, 0, length);
 #endif
 		}
