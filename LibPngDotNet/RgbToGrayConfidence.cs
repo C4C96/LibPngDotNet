@@ -10,8 +10,19 @@ namespace LibPngDotNet
 	/// </summary>
 	public readonly struct RgbToGrayConfidence
 	{
+		/// <summary>
+		/// Normalized red channel confidence
+		/// </summary>
 		public double R { get; }
+
+		/// <summary>
+		/// Normalized green channel confidence
+		/// </summary>
 		public double G { get; }
+
+		/// <summary>
+		/// Normalized blue channel confidence
+		/// </summary>
 		public double B => 1.0 - R - G;
 
 		/// <summary>
@@ -31,8 +42,8 @@ namespace LibPngDotNet
 		/// Set confidence and auto normalize
 		/// </summary>
 		/// <param name="r">Relative red channel confidence</param>
-		/// <param name="g">Relative red channel confidence</param>
-		/// <param name="b">Relative red channel confidence</param>
+		/// <param name="g">Relative green channel confidence</param>
+		/// <param name="b">Relative blue channel confidence</param>
 		public RgbToGrayConfidence(double r, double g, double b)
 		{
 			var sum = r + g + b;
@@ -50,6 +61,7 @@ namespace LibPngDotNet
 		/// </summary>
 		public static RgbToGrayConfidence Default => new RgbToGrayConfidence(6968.0 / 32768.0, 23434.0 / 32768.0);
 
+		/// <inheritdoc />
 		public override string ToString() => $"({R}, {G}, {B})";
 	}
 }

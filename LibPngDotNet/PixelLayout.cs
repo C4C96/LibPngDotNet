@@ -20,7 +20,23 @@ namespace LibPngDotNet
 		/// </summary>
 		public readonly byte BitDepth;
 
+		/// <summary>
+		/// Flags to describe pixel layout.
+		/// </summary>
 		public readonly PixelLayoutFlags Flags;
+
+		/// <summary>
+		/// Create a <see cref="PixelLayout"/>
+		/// </summary>
+		/// <param name="channels"></param>
+		/// <param name="bitDepth"></param>
+		/// <param name="flags"></param>
+		public PixelLayout(byte channels, byte bitDepth, PixelLayoutFlags flags = PixelLayoutFlags.Default)
+		{
+			Channels = channels;
+			BitDepth = bitDepth;
+			Flags = flags;
+		}
 
 		/// <summary>
 		/// Bits per pixel.
@@ -37,11 +53,14 @@ namespace LibPngDotNet
 		/// </summary>
 		public bool HasAlpha => (Channels & 0x1) == 0;
 
-		internal ColorType PngColorType
+		/// <summary>
+		/// Color type in png format.
+		/// </summary>
+		public ColorType PngColorType
 		{
 			get
 			{
-				var type = default(ColorType);
+				var type = (ColorType) 0;
 				if (!IsGrayScale)
 					type |= ColorType.Color;
 				if (HasAlpha)
@@ -50,13 +69,7 @@ namespace LibPngDotNet
 			}
 		}
 
-		public PixelLayout(byte channels, byte bitDepth, PixelLayoutFlags flags = PixelLayoutFlags.Default)
-		{
-			Channels = channels;
-			BitDepth = bitDepth;
-			Flags = flags;
-		}
-
+		/// <inheritdoc />
 		public override string ToString()
 		{
 			return GetNiceName() ??
@@ -112,29 +125,84 @@ namespace LibPngDotNet
 			return name + suffix;
 		}
 
+		/// <inheritdoc />
 		public override int GetHashCode()
 		{
 			return Channels << 24 | BitDepth << 16 | (int) Flags;
 		}
 
+		/// <summary>
+		/// 1 channel(gray scale), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout Gray => new PixelLayout(1, 8);
+		/// <summary>
+		/// 2 channels(gray scale, alpha), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout GrayAlpha => new PixelLayout(2, 8);
+		/// <summary>
+		/// 2 channels(alpha, gray scale), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout AlphaGray => new PixelLayout(2, 8, PixelLayoutFlags.AlphaAtHead);
+		/// <summary>
+		/// 3 channels(red, green blue), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout Rgb => new PixelLayout(3, 8);
+		/// <summary>
+		/// 3 channels(blue, green, red), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout Bgr => new PixelLayout(3, 8, PixelLayoutFlags.ReverseRgbOrder);
+		/// <summary>
+		/// 4 channels(red, green blue, alpha), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout Rgba => new PixelLayout(4, 8);
+		/// <summary>
+		/// 4 channels(alpha, red, green blue), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout Argb => new PixelLayout(4, 8, PixelLayoutFlags.AlphaAtHead);
-		public static PixelLayout Gbra => new PixelLayout(4, 8, PixelLayoutFlags.ReverseRgbOrder);
+		/// <summary>
+		/// 4 channels(blue, green, red, alpha), 8 bits per channel.
+		/// </summary>
+		public static PixelLayout Bgra => new PixelLayout(4, 8, PixelLayoutFlags.ReverseRgbOrder);
+		/// <summary>
+		/// 4 channels(alpha, blue, green, red), 8 bits per channel.
+		/// </summary>
 		public static PixelLayout Agbr => new PixelLayout(4, 8, PixelLayoutFlags.Agbr);
 
+		/// <summary>
+		/// 1 channel(gray scale), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout Gray16 => new PixelLayout(1, 16);
+		/// <summary>
+		/// 2 channels(gray scale, alpha), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout GrayAlpha16 => new PixelLayout(2, 16);
+		/// <summary>
+		/// 2 channels(alpha, gray scale), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout AlphaGray16 => new PixelLayout(2, 16, PixelLayoutFlags.AlphaAtHead);
+		/// <summary>
+		/// 3 channels(red, green blue), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout Rgb16 => new PixelLayout(3, 16);
+		/// <summary>
+		/// 3 channels(blue, green, red), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout Bgr16 => new PixelLayout(3, 16, PixelLayoutFlags.ReverseRgbOrder);
+		/// <summary>
+		/// 4 channels(red, green blue, alpha), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout Rgba16 => new PixelLayout(4, 16);
+		/// <summary>
+		/// 4 channels(alpha, red, green blue), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout Argb16 => new PixelLayout(4, 16, PixelLayoutFlags.AlphaAtHead);
-		public static PixelLayout Gbra16 => new PixelLayout(4, 16, PixelLayoutFlags.ReverseRgbOrder);
+		/// <summary>
+		/// 4 channels(blue, green, red, alpha), 16 bits per channel.
+		/// </summary>
+		public static PixelLayout Bgra16 => new PixelLayout(4, 16, PixelLayoutFlags.ReverseRgbOrder);
+		/// <summary>
+		/// 4 channels(alpha, blue, green, red), 16 bits per channel.
+		/// </summary>
 		public static PixelLayout Agbr16 => new PixelLayout(4, 16, PixelLayoutFlags.Agbr);
 
 		internal static PixelLayout GetLayout(string layoutName)
@@ -188,13 +256,20 @@ namespace LibPngDotNet
 		private readonly PixelLayout? _pixelLayout;
 		private readonly string _layoutName;
 
-		public PixelLayout PixelLayout => _pixelLayout ?? PixelLayout.GetLayout(_layoutName);
+		internal PixelLayout PixelLayout => _pixelLayout ?? PixelLayout.GetLayout(_layoutName);
 
+		/// <summary>
+		/// Add an attribute to describe the pixel layout of custom struct
+		/// </summary>
 		public PngPixelAttribute(byte channels, byte bitDepth, PixelLayoutFlags flags)
 		{
 			_pixelLayout = new PixelLayout(channels, bitDepth, flags);
 		}
 
+
+		/// <summary>
+		/// Add an attribute to describe the pixel layout of custom struct
+		/// </summary>
 		/// <param name="layoutName">The name of a build-in <see cref="T:LibPngDotNet.PixelLayout"/>, consider use <c>nameof</c> key word, like <c>nameof(PixelLayout.Rgb)</c></param>
 		public PngPixelAttribute(string layoutName)
 		{
